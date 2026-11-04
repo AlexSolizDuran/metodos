@@ -1,0 +1,23 @@
+# Directorios de compilación
+bin/
+obj/
+
+# Configuración de usuario de Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Resultados de pruebas
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Registros y temporales
+*.log
