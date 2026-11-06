@@ -1,0 +1,62 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+@{
+    List<ResumenIp> resumenes = Datos.Resumenes;
+    Dictionary<string, Alerta> alertas = Datos.CalcularAlertas()
+        .ToDictionary(a => a.DireccionIp, StringComparer.Ordinal);
+}
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Estadísticas por IP</h2>
+            <p class="subtitulo">Conteo de intentos totales, fallidos y exitosos.</p>
+        </div>
+        <span class="chip">@resumenes.Count IP</span>
+    </div>
+
+    @if (resumenes.Count == 0)
+    {
+        <p class="vacio">No hay registros para analizar.</p>
+    }
+    else
+    {
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>IP</th>
+                        <th class="num">Total</th>
+                        <th class="num">Fallidos</th>
+                        <th class="num">Exitosos</th>
+                        <th>Último intento</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (ResumenIp resumen in resumenes)
+                    {
+                        <tr>
+                            <td class="mono">@resumen.DireccionIp</td>
+                            <td class="num">@resumen.TotalIntentos</td>
+                            <td class="num">@resumen.IntentosFallidos</td>
+                            <td class="num">@resumen.IntentosExitosos</td>
+                            <td class="mono">@Formato.Fecha(resumen.UltimoIntento)</td>
+                            <td>
+                                @if (alertas.TryGetValue(resumen.DireccionIp, out Alerta? alerta))
+                                {
+                                    <span class="@Formato.ClaseEstado(alerta.Estado)">@alerta.Estado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-neutro">Sin umbral</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

@@ -1,0 +1,117 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Registros de autenticación</h2>
+            <p class="subtitulo">Carga un CSV con el formato IP, Usuario, FechaHora, Resultado.</p>
+        </div>
+        <div class="acciones">
+            <button class="btn btn-primary" @onclick="CargarDemo">Cargar demo</button>
+            <button class="btn btn-ghost" @onclick="Datos.LimpiarDatos">Limpiar</button>
+        </div>
+    </div>
+
+    <div class="grid grid-2">
+        <label class="file-box">
+            <span class="file-title">datos.csv</span>
+            <span class="file-hint">Registros que se van a analizar</span>
+            <InputFile OnChange="SubirDatos" accept=".csv,text/csv" />
+        </label>
+
+        <label class="file-box">
+            <span class="file-title">referencia.csv</span>
+            <span class="file-hint">IP normales para calcular μ y σ</span>
+            <InputFile OnChange="SubirReferencia" accept=".csv,text/csv" />
+        </label>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Datos.Mensaje))
+    {
+        <p class="aviso aviso-ok">@Datos.Mensaje</p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Datos.ErrorCarga))
+    {
+        <p class="aviso aviso-error">@Datos.ErrorCarga</p>
+    }
+
+    @if (Datos.AdvertenciasDatos.Count > 0 || Datos.AdvertenciasReferencia.Count > 0)
+    {
+        <details class="detalle-advertencias">
+            <summary>@(Datos.AdvertenciasDatos.Count + Datos.AdvertenciasReferencia.Count)
+                línea(s) omitida(s)</summary>
+            @foreach (string advertencia in Datos.AdvertenciasDatos.Concat(Datos.AdvertenciasReferencia))
+            {
+                <p class="aviso aviso-aviso">@advertencia</p>
+            }
+        </details>
+    }
+
+    @if (Datos.HayDatos)
+    {
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>IP</th>
+                        <th>Usuario</th>
+                        <th>Fecha y hora</th>
+                        <th>Resultado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (Registro registro in Datos.Registros.Take(14))
+                    {
+                        <tr>
+                            <td class="mono">@registro.DireccionIp</td>
+                            <td>@registro.Usuario</td>
+                            <td class="mono">@Formato.Fecha(registro.FechaHora)</td>
+                            <td>
+                                <span class="badge @(registro.Resultado == ResultadoIntento.Exitoso ? "badge-ok" : "badge-peligro")">
+                                    @(registro.Resultado == ResultadoIntento.Exitoso ? "EXITOSO" : "FALLIDO")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Datos.Registros.Count > 14)
+        {
+            <p class="nota">Mostrando 14 de @Datos.Registros.Count registros.</p>
+        }
+    }
+    else
+    {
+        <p class="vacio">No hay registros cargados. Usa “Cargar demo” o sube un CSV.</p>
+    }
+</section>
+
+@code {
+    private async Task CargarDemo()
+    {
+        await Datos.CargarDemoAsync();
+    }
+
+    private async Task SubirDatos(InputFileChangeEventArgs e)
+    {
+        string contenido = await LeerArchivo(e);
+        Datos.CargarDatos(contenido);
+    }
+
+    private async Task SubirReferencia(InputFileChangeEventArgs e)
+    {
+        string contenido = await LeerArchivo(e);
+        Datos.CargarReferencia(contenido);
+    }
+
+    private static async Task<string> LeerArchivo(InputFileChangeEventArgs e)
+    {
+        using Stream stream = e.File.OpenReadStream(maxAllowedSize: 5_000_000);
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync();
+    }
+}

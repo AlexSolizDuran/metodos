@@ -1,0 +1,63 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+@{
+    EstadisticaReferencia? estadistica = Datos.Estadistica;
+    ResultadoRaiz raiz = Datos.RaizUmbral;
+    double? umbral = Datos.Umbral;
+    int? umbralEntero = Datos.UmbralEntero;
+}
+
+<section class="card umbral-card">
+    <div class="card-head">
+        <div>
+            <h2>Umbral estadístico</h2>
+            <p class="subtitulo">T = μ + x · σ, con Φ(x) − 0.95 = 0</p>
+        </div>
+        <span class="chip">%95 de confianza</span>
+    </div>
+
+    @if (estadistica is null || umbral is null)
+    {
+        <p class="aviso aviso-error">
+            Carga <code>referencia.csv</code> para calcular μ, σ y el umbral.
+        </p>
+    }
+    else
+    {
+        <div class="kpi-row">
+            <div class="kpi">
+                <span class="kpi-label">Media μ</span>
+                <strong class="kpi-valor">@Formato.Numero(estadistica.Media, 6)</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Desviación σ</span>
+                <strong class="kpi-valor">@Formato.Numero(estadistica.Desviacion, 6)</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Percentil x</span>
+                <strong class="kpi-valor">@Formato.Numero(raiz.Valor, 6)</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Umbral T</span>
+                <strong class="kpi-valor">@Formato.Numero(umbral.Value, 6)</strong>
+            </div>
+            <div class="kpi kpi-destacado">
+                <span class="kpi-label">Umbral entero</span>
+                <strong class="kpi-valor">@umbralEntero.Value intentos</strong>
+            </div>
+        </div>
+
+        <div class="formula">
+            T = @Formato.Numero(estadistica.Media, 6)
+            + @Formato.Numero(raiz.Valor, 6) × @Formato.Numero(estadistica.Desviacion, 6)
+            = @Formato.Numero(umbral.Value, 6)
+            → @umbralEntero.Value intentos fallidos
+        </div>
+
+        <p class="nota">
+            Bisección: @raiz.Iteraciones iteraciones, error
+            @Formato.Cientifico(raiz.Error) · @estadistica.CantidadIp IP de referencia.
+        </p>
+    }
+</section>

@@ -1,0 +1,134 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+@{
+    List<Alerta> alertas = Datos.CalcularAlertas();
+    ResultadoValidacion validacion = Datos.CalcularValidacion();
+    int sospechosas = alertas.Count(a => a.EsSospechosa);
+}
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Alertas por IP</h2>
+            <p class="subtitulo">
+                Umbral entero: @(Datos.UmbralEntero?.ToString() ?? "sin referencia")
+                intentos fallidos.
+            </p>
+        </div>
+        <span class="chip @(sospechosas > 0 ? "chip-alerta" : "")">
+            @sospechosas sospechosa(s)
+        </span>
+    </div>
+
+    @if (Datos.Umbral is null)
+    {
+        <p class="aviso aviso-error">
+            No se puede evaluar sin registros de referencia. Carga <code>referencia.csv</code>.
+        </p>
+    }
+    else if (alertas.Count == 0)
+    {
+        <p class="vacio">No hay registros cargados para generar alertas.</p>
+    }
+    else
+    {
+        <div class="alertas-grid">
+            @foreach (Alerta alerta in alertas)
+            {
+                <article class="@Formato.ClaseAlerta(alerta.Estado)">
+                    <header class="alerta-head">
+                        <span class="mono alerta-ip">@alerta.DireccionIp</span>
+                        <span class="@Formato.ClaseEstado(alerta.Estado)">@alerta.Estado</span>
+                    </header>
+
+                    <div class="alerta-metricas">
+                        <div>
+                            <span>Intentos</span>
+                            <strong>@alerta.IntentosAnalizados</strong>
+                        </div>
+                        <div>
+                            <span>Fallidos</span>
+                            <strong>@alerta.IntentosFallidos</strong>
+                        </div>
+                        <div>
+                            <span>Frecuencia</span>
+                            <strong>@Formato.Numero(alerta.FrecuenciaActual, 3) int/s</strong>
+                        </div>
+                        <div>
+                            <span>Variación</span>
+                            <strong>@alerta.Variacion</strong>
+                        </div>
+                    </div>
+
+                    <p class="motivo">@alerta.Motivo</p>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Validación con escenarios</h2>
+            <p class="subtitulo">Escenarios normal, sospechoso y acelerado del informe.</p>
+        </div>
+    </div>
+
+    @if (!validacion.Disponible)
+    {
+        <p class="vacio">La validación requiere el umbral estadístico de referencia.</p>
+    }
+    else
+    {
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Escenario</th>
+                        <th>IP</th>
+                        <th>Esperado</th>
+                        <th>Obtenido</th>
+                        <th>Correcto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (FilaValidacion fila in validacion.Filas)
+                    {
+                        <tr>
+                            <td>@fila.Escenario</td>
+                            <td class="mono">@fila.DireccionIp</td>
+                            <td><span class="@Formato.ClaseEstado(fila.Esperado)">@fila.Esperado</span></td>
+                            <td><span class="@Formato.ClaseEstado(fila.Obtenido)">@fila.Obtenido</span></td>
+                            <td>
+                                <span class="badge @(fila.Correcto ? "badge-ok" : "badge-peligro")">
+                                    @(fila.Correcto ? "Sí" : "No")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="matriz">
+            <div class="matriz-item matriz-bien">
+                <span>Verdaderos positivos</span>
+                <strong>@validacion.Resumen.VerdaderosPositivos</strong>
+            </div>
+            <div class="matriz-item matriz-mal">
+                <span>Falsos positivos</span>
+                <strong>@validacion.Resumen.FalsosPositivos</strong>
+            </div>
+            <div class="matriz-item matriz-bien">
+                <span>Verdaderos negativos</span>
+                <strong>@validacion.Resumen.VerdaderosNegativos</strong>
+            </div>
+            <div class="matriz-item matriz-mal">
+                <span>Falsos negativos</span>
+                <strong>@validacion.Resumen.FalsosNegativos</strong>
+            </div>
+        </div>
+    }
+</section>

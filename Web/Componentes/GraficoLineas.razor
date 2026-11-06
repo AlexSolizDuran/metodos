@@ -1,0 +1,127 @@
+@using System.Text
+@using DetectorFuerzaBruta.Web.Servicios
+
+@if (Valores.Count == 0)
+{
+    <p class="vacio">Sin datos para graficar.</p>
+}
+else
+{
+    <div class="grafico">
+        @if (!string.IsNullOrWhiteSpace(Titulo))
+        {
+            <h4>@Titulo <span class="unidad">@Unidad</span></h4>
+        }
+
+        @(new MarkupString(_svg))
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<double> Valores { get; set; } = Array.Empty<double>();
+    [Parameter] public IReadOnlyList<string> Etiquetas { get; set; } = Array.Empty<string>();
+    [Parameter] public string Color { get; set; } = "#38bdf8";
+    [Parameter] public string Titulo { get; set; } = string.Empty;
+    [Parameter] public string Unidad { get; set; } = string.Empty;
+
+    private const double Ancho = 640;
+    private const double Alto = 240;
+    private const double Izquierda = 58;
+    private const double Derecha = 18;
+    private const double Arriba = 16;
+    private const double Abajo = 38;
+    private const double PlotW = Ancho - Izquierda - Derecha;
+    private const double PlotH = Alto - Arriba - Abajo;
+
+    private string _svg = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        _svg = ConstruirSvg();
+    }
+
+    private string ConstruirSvg()
+    {
+        if (Valores.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        double minimo = Valores.Min();
+        double maximo = Valores.Max();
+
+        if (Math.Abs(maximo - minimo) < 1e-12)
+        {
+            double margen = Math.Abs(maximo) * 0.1 + 1.0;
+            minimo -= margen;
+            maximo += margen;
+        }
+
+        var puntos = new List<(double X, double Y)>();
+        int pasoEtiqueta = Math.Max(1, (int)Math.Ceiling(Valores.Count / 6.0));
+
+        for (int i = 0; i < Valores.Count; i++)
+        {
+            double x = Valores.Count == 1
+                ? Izquierda + PlotW / 2.0
+                : Izquierda + PlotW * i / (Valores.Count - 1);
+            double y = Arriba + PlotH * (1.0 - (Valores[i] - minimo) / (maximo - minimo));
+            puntos.Add((x, y));
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("<svg viewBox=\"0 0 640 240\" role=\"img\" aria-label=\"")
+          .Append(System.Net.WebUtility.HtmlEncode(Titulo))
+          .Append("\">");
+
+        for (int nivel = 0; nivel <= 4; nivel++)
+        {
+            double valorNivel = minimo + (maximo - minimo) * nivel / 4.0;
+            double yNivel = Arriba + PlotH * (1 - nivel / 4.0);
+
+            sb.Append("<line x1=\"").Append(Formato.Coordenada(Izquierda))
+              .Append("\" y1=\"").Append(Formato.Coordenada(yNivel))
+              .Append("\" x2=\"").Append(Formato.Coordenada(Izquierda + PlotW))
+              .Append("\" y2=\"").Append(Formato.Coordenada(yNivel))
+              .Append("\" class=\"grilla\" />");
+
+            sb.Append("<text x=\"").Append(Formato.Coordenada(Izquierda - 8))
+              .Append("\" y=\"").Append(Formato.Coordenada(yNivel + 4))
+              .Append("\" text-anchor=\"end\" class=\"eje\">")
+              .Append(Formato.Numero(valorNivel, 2))
+              .Append("</text>");
+        }
+
+        string puntosTexto = string.Join(" ",
+            puntos.Select(p => $"{Formato.Coordenada(p.X)},{Formato.Coordenada(p.Y)}"));
+
+        sb.Append("<polyline points=\"").Append(puntosTexto)
+          .Append("\" fill=\"none\" stroke=\"").Append(Color)
+          .Append("\" stroke-width=\"2.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" />");
+
+        for (int i = 0; i < puntos.Count; i++)
+        {
+            sb.Append("<circle cx=\"").Append(Formato.Coordenada(puntos[i].X))
+              .Append("\" cy=\"").Append(Formato.Coordenada(puntos[i].Y))
+              .Append("\" r=\"3.5\" fill=\"").Append(Color)
+              .Append("\" />");
+        }
+
+        for (int i = 0; i < puntos.Count; i++)
+        {
+            if (i % pasoEtiqueta == 0 || i == puntos.Count - 1)
+            {
+                string etiqueta = i < Etiquetas.Count ? Etiquetas[i] : (i + 1).ToString();
+
+                sb.Append("<text x=\"").Append(Formato.Coordenada(puntos[i].X))
+                  .Append("\" y=\"").Append(Formato.Coordenada(Arriba + PlotH + 22))
+                  .Append("\" text-anchor=\"middle\" class=\"eje\">")
+                  .Append(System.Net.WebUtility.HtmlEncode(etiqueta))
+                  .Append("</text>");
+            }
+        }
+
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+}

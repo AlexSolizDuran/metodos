@@ -1,0 +1,143 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+@{
+    Dictionary<string, List<Registro>> grupos = Datos.Grupos;
+    List<string> ips = grupos.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+    string? ipActual = _ipSeleccionada is not null && grupos.ContainsKey(_ipSeleccionada)
+        ? _ipSeleccionada
+        : ips.FirstOrDefault();
+
+    ResultadoTemporal? temporal = ipActual is not null
+        ? DiferenciasFinitas.Calcular(grupos[ipActual], Configuracion.TamanoVentana)
+        : null;
+
+    List<string> etiquetas = temporal is null
+        ? new List<string>()
+        : temporal.MarcasTiempo.Select(Formato.Hora).ToList();
+    List<string> etiquetasAceleracion = etiquetas.Skip(1).ToList();
+}
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Análisis temporal</h2>
+            <p class="subtitulo">Diferencias finitas sobre la ventana móvil de
+                @Configuracion.TamanoVentana intentos.</p>
+        </div>
+        @if (ips.Count > 0)
+        {
+            <label class="selector">
+                <span>IP</span>
+                <select value="@ipActual" @onchange="CambiarIp">
+                    @foreach (string ip in ips)
+                    {
+                        <option value="@ip">@ip</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+
+    <div class="formula">
+        h_i = t_i − t_(i−1) &nbsp;·&nbsp; v_i = 1 / h_i &nbsp;·&nbsp;
+        a_i = (v_i − v_(i−1)) / ((h_i + h_(i−1)) / 2)
+    </div>
+
+    @if (temporal is null || ipActual is null)
+    {
+        <p class="vacio">No hay registros para analizar.</p>
+    }
+    else if (!temporal.HayDatos)
+    {
+        <p class="vacio">
+            Se necesitan al menos dos intentos con fechas distintas.
+            @if (temporal.IntervalosIgnorados > 0)
+            {
+                <span> Intervalos descartados: @temporal.IntervalosIgnorados.</span>
+            }
+        </p>
+    }
+    else
+    {
+        <div class="kpi-row">
+            <div class="kpi">
+                <span class="kpi-label">Intentos en ventana</span>
+                <strong class="kpi-valor">@temporal.IntentosAnalizados</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Fallidos en ventana</span>
+                <strong class="kpi-valor">@temporal.IntentosFallidos</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Frecuencia actual</span>
+                <strong class="kpi-valor">@Formato.Numero(temporal.FrecuenciaActual, 4)
+                    <small>int/s</small></strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Variación</span>
+                <strong class="kpi-valor">@temporal.Variacion</strong>
+            </div>
+            <div class="kpi">
+                <span class="kpi-label">Aceleración media</span>
+                <strong class="kpi-valor">@Formato.ConSigno(temporal.PromedioAceleracion, 6)</strong>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <GraficoLineas Titulo="Frecuencia v_i" Unidad="int/s"
+                           Valores="@temporal.Frecuencias" Etiquetas="@etiquetas"
+                           Color="#38bdf8" />
+            <GraficoLineas Titulo="Intervalo h_i" Unidad="s"
+                           Valores="@temporal.Intervalos" Etiquetas="@etiquetas"
+                           Color="#a78bfa" />
+        </div>
+
+        <GraficoLineas Titulo="Aceleración a_i" Unidad="int/s²"
+                       Valores="@temporal.Aceleraciones" Etiquetas="@etiquetasAceleracion"
+                       Color="#f59e0b" />
+
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th class="num">t (s)</th>
+                        <th class="num">h (s)</th>
+                        <th class="num">v (int/s)</th>
+                        <th class="num">a (int/s²)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < temporal.Intervalos.Count; i++)
+                    {
+                        double t = (temporal.MarcasTiempo[i] - temporal.Inicio).TotalSeconds;
+                        string aceleracion = i >= 1
+                            ? Formato.ConSigno(temporal.Aceleraciones[i - 1], 6)
+                            : "—";
+
+                        <tr>
+                            <td class="num mono">@Formato.Numero(t, 4)</td>
+                            <td class="num mono">@Formato.Numero(temporal.Intervalos[i], 4)</td>
+                            <td class="num mono">@Formato.Numero(temporal.Frecuencias[i], 6)</td>
+                            <td class="num mono">@aceleracion</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (temporal.IntervalosIgnorados > 0)
+        {
+            <p class="nota">Intervalos descartados (h ≤ 0): @temporal.IntervalosIgnorados.</p>
+        }
+    }
+</section>
+
+@code {
+    private string? _ipSeleccionada;
+
+    private void CambiarIp(ChangeEventArgs e)
+    {
+        _ipSeleccionada = e.Value?.ToString();
+    }
+}

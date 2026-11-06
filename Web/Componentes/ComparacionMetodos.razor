@@ -1,0 +1,184 @@
+@using DetectorFuerzaBruta.Web.Servicios
+@inject DatosServicio Datos
+
+<section class="card">
+    <div class="card-head">
+        <div>
+            <h2>Comparación de métodos numéricos</h2>
+            <p class="subtitulo">Raíz de Φ(x) − 0.95 = 0 con bisección y Newton-Raphson.</p>
+        </div>
+        <span class="chip">Tolerancia @Formato.Cientifico(Configuracion.Tolerancia)</span>
+    </div>
+
+    <div class="tabla-scroll">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Método</th>
+                    <th class="num">Valor</th>
+                    <th class="num">Iteraciones</th>
+                    <th class="num">Error</th>
+                    <th>Convergió</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Bisección</td>
+                    <td class="num mono">@Formato.Numero(_biseccion.Valor, 6)</td>
+                    <td class="num">@_biseccion.Iteraciones</td>
+                    <td class="num mono">@Formato.Cientifico(_biseccion.Error)</td>
+                    <td>
+                        <span class="badge @(_biseccion.Convergio ? "badge-ok" : "badge-peligro")">
+                            @(_biseccion.Convergio ? "Sí" : "No")
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Newton-Raphson</td>
+                    <td class="num mono">@Formato.Numero(_newton.Valor, 6)</td>
+                    <td class="num">@_newton.Iteraciones</td>
+                    <td class="num mono">@Formato.Cientifico(_newton.Error)</td>
+                    <td>
+                        <span class="badge @(_newton.Convergio ? "badge-ok" : "badge-peligro")">
+                            @(_newton.Convergio ? "Sí" : "No")
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="kpi-row">
+        <div class="kpi">
+            <span class="kpi-label">Diferencia entre valores</span>
+            <strong class="kpi-valor">@Formato.Cientifico(Math.Abs(_biseccion.Valor - _newton.Valor))</strong>
+        </div>
+        <div class="kpi">
+            <span class="kpi-label">Ahorro de iteraciones</span>
+            <strong class="kpi-valor">@Math.Abs(_biseccion.Iteraciones - _newton.Iteraciones)</strong>
+        </div>
+        <div class="kpi kpi-destacado">
+            <span class="kpi-label">Método más rápido</span>
+            <strong class="kpi-valor">
+                @(_biseccion.Iteraciones <= _newton.Iteraciones ? "Bisección" : "Newton-Raphson")
+            </strong>
+        </div>
+    </div>
+
+    @if (Datos.Estadistica is EstadisticaReferencia estadistica && Datos.Umbral is double umbral)
+    {
+        <div class="formula">
+            T = @Formato.Numero(estadistica.Media, 6)
+            + @Formato.Numero(_biseccion.Valor, 6) × @Formato.Numero(estadistica.Desviacion, 6)
+            = @Formato.Numero(umbral, 6)
+            → @((int)Math.Ceiling(umbral)) intentos fallidos
+        </div>
+    }
+
+    <div class="grid grid-2">
+        <GraficoLineas Titulo="Error de bisección (log₁₀)" Unidad="log"
+                       Valores="@_erroresBiseccion" Etiquetas="@_etiquetasBiseccion"
+                       Color="#38bdf8" />
+        <GraficoLineas Titulo="Error de Newton (log₁₀)" Unidad="log"
+                       Valores="@_erroresNewton" Etiquetas="@_etiquetasNewton"
+                       Color="#34d399" />
+    </div>
+
+    <details class="detalle-tabla">
+        <summary>Ver iteraciones de bisección (@_biseccion.Pasos.Count)</summary>
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th class="num">i</th>
+                        <th class="num">a</th>
+                        <th class="num">b</th>
+                        <th class="num">c</th>
+                        <th class="num">f(c)</th>
+                        <th class="num">error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (PasoRaiz paso in _biseccion.Pasos)
+                    {
+                        <tr>
+                            <td class="num">@paso.Iteracion</td>
+                            <td class="num mono">@Formato.Numero(paso.A, 6)</td>
+                            <td class="num mono">@Formato.Numero(paso.B, 6)</td>
+                            <td class="num mono">@Formato.Numero(paso.Punto, 6)</td>
+                            <td class="num mono">@Formato.Cientifico(paso.Funcion)</td>
+                            <td class="num mono">@Formato.Cientifico(paso.Error)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <details class="detalle-tabla">
+        <summary>Ver iteraciones de Newton-Raphson (@_newton.Pasos.Count)</summary>
+        <div class="tabla-scroll">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th class="num">i</th>
+                        <th class="num">x</th>
+                        <th class="num">f(x)</th>
+                        <th class="num">f'(x)</th>
+                        <th class="num">error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (PasoRaiz paso in _newton.Pasos)
+                    {
+                        <tr>
+                            <td class="num">@paso.Iteracion</td>
+                            <td class="num mono">@Formato.Numero(paso.Punto, 6)</td>
+                            <td class="num mono">@Formato.Cientifico(paso.Funcion)</td>
+                            <td class="num mono">@Formato.Cientifico(paso.Derivada)</td>
+                            <td class="num mono">@Formato.Cientifico(paso.Error)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </details>
+</section>
+
+@code {
+    private ResultadoRaiz _biseccion = new();
+    private ResultadoRaiz _newton = new();
+    private List<double> _erroresBiseccion = new();
+    private List<double> _erroresNewton = new();
+    private List<string> _etiquetasBiseccion = new();
+    private List<string> _etiquetasNewton = new();
+
+    protected override void OnInitialized()
+    {
+        Func<double, double> ecuacion = x =>
+            NormalEstandar.Acumulada(x) - Configuracion.NivelConfianza;
+
+        _biseccion = MetodoBiseccion.Calcular(
+            ecuacion, -6.0, 6.0,
+            Configuracion.Tolerancia,
+            Configuracion.IteracionesMaximasBiseccion);
+
+        _newton = MetodoNewton.Calcular(
+            ecuacion, NormalEstandar.Densidad, 0.0,
+            Configuracion.Tolerancia,
+            Configuracion.IteracionesMaximasNewton);
+
+        _erroresBiseccion = _biseccion.Pasos
+            .Select(p => Math.Log10(Math.Max(p.Error, 1e-16)))
+            .ToList();
+        _erroresNewton = _newton.Pasos
+            .Select(p => Math.Log10(Math.Max(p.Error, 1e-16)))
+            .ToList();
+        _etiquetasBiseccion = _biseccion.Pasos
+            .Select(p => p.Iteracion.ToString())
+            .ToList();
+        _etiquetasNewton = _newton.Pasos
+            .Select(p => p.Iteracion.ToString())
+            .ToList();
+    }
+}

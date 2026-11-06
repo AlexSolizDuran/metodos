@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Web/**" />
     <None Update="datos.csv" CopyToOutputDirectory="PreserveNewest" />
     <None Update="referencia.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -1,6 +1,11 @@
 # Directorios de compilación
 bin/
 obj/
+Web/publish/
+.dotnet/
+
+# Vercel
+.vercel/
 
 # Configuración de usuario de Visual Studio / Rider
 .vs/

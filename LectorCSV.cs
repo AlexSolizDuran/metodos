@@ -2,7 +2,14 @@ using System.Globalization;
 
 namespace DetectorFuerzaBruta;
 
-// Lee y valida el archivo CSV de registros de autenticación.
+// Resultado de leer un CSV: registros válidos y avisos de líneas omitidas.
+public class ResultadoLectura
+{
+    public List<Registro> Registros { get; } = new();
+    public List<string> Advertencias { get; } = new();
+}
+
+// Lee y valida el contenido CSV de registros de autenticación.
 public static class LectorCSV
 {
     // Formatos de fecha aceptados: con o sin fracción de segundo.
@@ -12,19 +19,40 @@ public static class LectorCSV
         "yyyy-MM-dd HH:mm:ss.fff"
     };
 
-    // Lee un CSV con el formato IP,Usuario,FechaHora,Resultado.
-    // Las líneas mal formadas se informan y se omiten.
+    // Lee un CSV desde el disco. Conserva la salida de consola del programa original.
     public static List<Registro> Leer(string ruta)
     {
-        var registros = new List<Registro>();
-
         if (!File.Exists(ruta))
         {
             Console.WriteLine($"No se encontró el archivo: {ruta}");
-            return registros;
+            return new List<Registro>();
         }
 
-        string[] lineas = File.ReadAllLines(ruta);
+        ResultadoLectura resultado = LeerTexto(File.ReadAllText(ruta));
+
+        foreach (string advertencia in resultado.Advertencias)
+        {
+            Console.WriteLine(advertencia);
+        }
+
+        return resultado.Registros;
+    }
+
+    // Lee un CSV desde texto. Usado por la interfaz web para procesar archivos subidos.
+    public static ResultadoLectura LeerTexto(string contenido)
+    {
+        var resultado = new ResultadoLectura();
+
+        if (string.IsNullOrWhiteSpace(contenido))
+        {
+            return resultado;
+        }
+
+        string[] lineas = contenido
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Split('\n');
+
         bool primeraLinea = true;
 
         for (int i = 0; i < lineas.Length; i++)
@@ -46,24 +74,28 @@ public static class LectorCSV
                 }
             }
 
-            Registro? registro = ConvertirLinea(linea, i + 1);
+            Registro? registro = ConvertirLinea(linea, i + 1, resultado.Advertencias);
             if (registro is not null)
             {
-                registros.Add(registro);
+                resultado.Registros.Add(registro);
             }
         }
 
-        registros.Sort((a, b) => a.FechaHora.CompareTo(b.FechaHora));
-        return registros;
+        resultado.Registros.Sort((a, b) => a.FechaHora.CompareTo(b.FechaHora));
+        return resultado;
     }
 
     // Convierte una línea del CSV en un registro. Devuelve null si la línea es inválida.
-    public static Registro? ConvertirLinea(string linea, int numeroLinea)
+    public static Registro? ConvertirLinea(
+        string linea,
+        int numeroLinea,
+        ICollection<string>? advertencias = null)
     {
         string[] partes = linea.Split(',');
         if (partes.Length != 4)
         {
-            Console.WriteLine($"Línea {numeroLinea} ignorada: se esperaban 4 columnas.");
+            AgregarAdvertencia(advertencias,
+                $"Línea {numeroLinea} ignorada: se esperaban 4 columnas.");
             return null;
         }
 
@@ -74,7 +106,8 @@ public static class LectorCSV
 
         if (string.IsNullOrWhiteSpace(direccionIp) || string.IsNullOrWhiteSpace(usuario))
         {
-            Console.WriteLine($"Línea {numeroLinea} ignorada: IP o usuario vacío.");
+            AgregarAdvertencia(advertencias,
+                $"Línea {numeroLinea} ignorada: IP o usuario vacío.");
             return null;
         }
 
@@ -85,7 +118,8 @@ public static class LectorCSV
                 DateTimeStyles.None,
                 out DateTime fechaHora))
         {
-            Console.WriteLine($"Línea {numeroLinea} ignorada: fecha inválida ({textoFecha}).");
+            AgregarAdvertencia(advertencias,
+                $"Línea {numeroLinea} ignorada: fecha inválida ({textoFecha}).");
             return null;
         }
 
@@ -100,7 +134,8 @@ public static class LectorCSV
         }
         else
         {
-            Console.WriteLine($"Línea {numeroLinea} ignorada: resultado desconocido ({textoResultado}).");
+            AgregarAdvertencia(advertencias,
+                $"Línea {numeroLinea} ignorada: resultado desconocido ({textoResultado}).");
             return null;
         }
 
@@ -111,5 +146,18 @@ public static class LectorCSV
             FechaHora = fechaHora,
             Resultado = resultado
         };
+    }
+
+    private static void AgregarAdvertencia(
+        ICollection<string>? advertencias,
+        string mensaje)
+    {
+        if (advertencias is null)
+        {
+            Console.WriteLine(mensaje);
+            return;
+        }
+
+        advertencias.Add(mensaje);
     }
 }
