@@ -47,6 +47,22 @@ public class DatosServicio
     public string? Mensaje { get; private set; }
     public bool Inicializado { get; private set; }
 
+    // Estado del monitoreo simulado (opción 1 de la versión de consola).
+    public bool SimulacionEnCurso { get; private set; }
+    public int SimulacionProcesados { get; private set; }
+    public int SimulacionTotal { get; private set; }
+    public Alerta? SimulacionActual { get; private set; }
+    public List<Alerta> SimulacionHistorial { get; } = new();
+    public string? SimulacionMensaje { get; private set; }
+    public string? SimulacionError { get; private set; }
+
+    public double SimulacionProgreso =>
+        SimulacionTotal == 0
+            ? 0.0
+            : 100.0 * SimulacionProcesados / SimulacionTotal;
+
+    private CancellationTokenSource? _simulacionCts;
+
     public event Action? Cambio;
 
     public bool HayDatos => Registros.Count > 0;
@@ -163,6 +179,130 @@ public class DatosServicio
         };
     }
 
+    // Genera los 21 eventos del monitoreo simulado y los procesa uno por uno,
+    // igual que la opción 1 de la versión de consola. Al finalizar (o al
+    // detenerse), los eventos procesados se agregan al conjunto actual.
+    public async Task EjecutarSimulacionAsync()
+    {
+        if (SimulacionEnCurso)
+        {
+            return;
+        }
+
+        if (Umbral is not double umbral)
+        {
+            SimulacionError = "No se puede simular sin registros de referencia. " +
+                              "Carga referencia.csv para calcular el umbral.";
+            SimulacionMensaje = null;
+            Notificar();
+            return;
+        }
+
+        SimulacionEnCurso = true;
+        SimulacionProcesados = 0;
+        SimulacionTotal = 0;
+        SimulacionActual = null;
+        SimulacionHistorial.Clear();
+        SimulacionMensaje = null;
+        SimulacionError = null;
+
+        _simulacionCts = new CancellationTokenSource();
+        CancellationToken token = _simulacionCts.Token;
+
+        List<Registro> eventos = Simulador.GenerarMonitoreo();
+        SimulacionTotal = eventos.Count;
+
+        var porIp = new Dictionary<string, List<Registro>>(StringComparer.Ordinal);
+        var procesados = new List<Registro>();
+
+        Notificar();
+
+        try
+        {
+            foreach (Registro evento in eventos)
+            {
+                token.ThrowIfCancellationRequested();
+
+                if (!porIp.TryGetValue(evento.DireccionIp, out List<Registro>? lista))
+                {
+                    lista = new List<Registro>();
+                    porIp[evento.DireccionIp] = lista;
+                }
+
+                lista.Add(evento);
+                procesados.Add(evento);
+
+                ResultadoTemporal temporal = DiferenciasFinitas.Calcular(
+                    lista,
+                    Configuracion.TamanoVentana);
+                Alerta alerta = Detector.Evaluar(evento.DireccionIp, temporal, umbral);
+
+                SimulacionActual = alerta;
+                SimulacionHistorial.Add(alerta);
+                SimulacionProcesados++;
+                Notificar();
+
+                await Task.Delay(Configuracion.PausaSimulacionMs, token);
+            }
+
+            AgregarRegistrosSimulados(procesados);
+            SimulacionMensaje =
+                $"Monitoreo finalizado. Eventos procesados: {procesados.Count}. " +
+                $"Los eventos se agregaron al conjunto actual " +
+                $"({Registros.Count} registros en total).";
+        }
+        catch (OperationCanceledException)
+        {
+            AgregarRegistrosSimulados(procesados);
+            SimulacionMensaje =
+                $"Monitoreo detenido. Eventos procesados: {procesados.Count}. " +
+                $"Los eventos se agregaron al conjunto actual " +
+                $"({Registros.Count} registros en total).";
+        }
+        finally
+        {
+            SimulacionEnCurso = false;
+            _simulacionCts?.Dispose();
+            _simulacionCts = null;
+            Notificar();
+        }
+    }
+
+    public void DetenerSimulacion()
+    {
+        _simulacionCts?.Cancel();
+    }
+
+    private void AgregarRegistrosSimulados(List<Registro> procesados)
+    {
+        if (procesados.Count == 0)
+        {
+            return;
+        }
+
+        Registros = Registros
+            .Concat(procesados)
+            .OrderBy(r => r.FechaHora)
+            .ToList();
+    }
+
+    // Al cambiar los datos o la referencia, la simulación anterior deja de
+    // representar el estado actual y se limpia de la vista.
+    private void ReiniciarVistaSimulacion()
+    {
+        if (SimulacionEnCurso)
+        {
+            return;
+        }
+
+        SimulacionProcesados = 0;
+        SimulacionTotal = 0;
+        SimulacionActual = null;
+        SimulacionHistorial.Clear();
+        SimulacionMensaje = null;
+        SimulacionError = null;
+    }
+
     public async Task InicializarAsync()
     {
         if (Inicializado)
@@ -176,6 +316,11 @@ public class DatosServicio
 
     public async Task CargarDemoAsync()
     {
+        if (SimulacionEnCurso)
+        {
+            return;
+        }
+
         try
         {
             string contenidoDatos = await _http.GetStringAsync("datos.csv");
@@ -191,6 +336,7 @@ public class DatosServicio
             ErrorCarga = null;
             Mensaje = $"Datos demo cargados: {Registros.Count} registros y " +
                       $"{Referencia.Count} registros de referencia.";
+            ReiniciarVistaSimulacion();
         }
         catch (Exception ex)
         {
@@ -200,39 +346,31 @@ public class DatosServicio
         Notificar();
     }
 
-    public void CargarDatos(string contenido)
-    {
-        ResultadoLectura resultado = LectorCSV.LeerTexto(contenido);
-        Registros = resultado.Registros;
-        AdvertenciasDatos = resultado.Advertencias;
-        ErrorCarga = null;
-        Mensaje = $"Se cargaron {Registros.Count} registros.";
-        Notificar();
-    }
-
-    public void CargarReferencia(string contenido)
-    {
-        ResultadoLectura resultado = LectorCSV.LeerTexto(contenido);
-        Referencia = resultado.Registros;
-        AdvertenciasReferencia = resultado.Advertencias;
-        ErrorCarga = null;
-        Mensaje = $"Se cargaron {Referencia.Count} registros de referencia.";
-        Notificar();
-    }
-
     public void LimpiarDatos()
     {
+        if (SimulacionEnCurso)
+        {
+            return;
+        }
+
         Registros = new List<Registro>();
         AdvertenciasDatos = new List<string>();
         Mensaje = "Se quitaron los registros cargados.";
+        ReiniciarVistaSimulacion();
         Notificar();
     }
 
     public void LimpiarReferencia()
     {
+        if (SimulacionEnCurso)
+        {
+            return;
+        }
+
         Referencia = new List<Registro>();
         AdvertenciasReferencia = new List<string>();
         Mensaje = "Se quitaron los registros de referencia.";
+        ReiniciarVistaSimulacion();
         Notificar();
     }
 

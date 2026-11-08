@@ -1,5 +1,4 @@
-@using DetectorFuerzaBruta.Web.Servicios
-@inject DatosServicio Datos
+@inherits DatosComponenteBase
 
 @{
     List<ResumenIp> resumenes = Datos.Resumenes;
@@ -7,11 +6,11 @@
         .ToDictionary(a => a.DireccionIp, StringComparer.Ordinal);
 }
 
-<section class="card">
-    <div class="card-head">
+<section class="seccion">
+    <div class="seccion-head">
         <div>
             <h2>Estadísticas por IP</h2>
-            <p class="subtitulo">Conteo de intentos totales, fallidos y exitosos.</p>
+            <p class="subtitulo">Conteo de intentos totales, fallidos y exitosos por dirección IP.</p>
         </div>
         <span class="chip">@resumenes.Count IP</span>
     </div>

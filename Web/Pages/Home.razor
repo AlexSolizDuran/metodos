@@ -1,85 +1,65 @@
 @page "/"
-@implements IDisposable
-@inject DatosServicio Datos
+@inherits DatosComponenteBase
 
 @{
     int totalAlertas = Datos.CalcularAlertas().Count(a => a.EsSospechosa);
 }
 
-<div class="resumen-strip">
-    <div class="mini">
-        <span>Registros</span>
-        <strong>@Datos.Registros.Count</strong>
-    </div>
-    <div class="mini">
-        <span>IP analizadas</span>
-        <strong>@Datos.Grupos.Count</strong>
-    </div>
-    <div class="mini">
-        <span>Umbral</span>
-        <strong>@(Datos.UmbralEntero?.ToString() ?? "—")</strong>
-    </div>
-    <div class="mini">
-        <span>IP sospechosas</span>
-        <strong class="@(totalAlertas > 0 ? "texto-peligro" : "texto-ok")">@totalAlertas</strong>
-    </div>
-</div>
+<div class="pagina">
+    <div class="pagina-fija">
+        <header class="hero">
+            <p class="hero-kicker">Métodos Numéricos · Seguridad de autenticación</p>
+            <h1 class="hero-titulo">Detección de fuerza bruta en registros de acceso</h1>
+            
+        </header>
 
-<nav class="tabs" role="tablist">
-    <button class="tab @(Pestana == "datos" ? "active" : "")"
-            @onclick='() => Pestana = "datos"'>Datos</button>
-    <button class="tab @(Pestana == "estadisticas" ? "active" : "")"
-            @onclick='() => Pestana = "estadisticas"'>Estadísticas</button>
-    <button class="tab @(Pestana == "temporal" ? "active" : "")"
-            @onclick='() => Pestana = "temporal"'>Análisis temporal</button>
-    <button class="tab @(Pestana == "metodos" ? "active" : "")"
-            @onclick='() => Pestana = "metodos"'>Métodos numéricos</button>
-    <button class="tab @(Pestana == "alertas" ? "active" : "")"
-            @onclick='() => Pestana = "alertas"'>Alertas</button>
-</nav>
+        <nav class="tabs" role="tablist">
+            <button class="tab @(Pestana == "datos" ? "active" : "")" @onclick='() => Pestana = "datos"'>Datos</button>
+            <button class="tab @(Pestana == "estadisticas" ? "active" : "")"
+                    @onclick='() => Pestana = "estadisticas"'>Estadísticas</button>
+            <button class="tab @(Pestana == "temporal" ? "active" : "")" @onclick='() => Pestana = "temporal"'>Análisis
+                temporal</button>
+                <button class="tab @(Pestana == "metodos" ? "active" : "")" @onclick='() => Pestana = "metodos"'>Métodos
+                    numéricos</button>
+                    <button class="tab @(Pestana == "alertas" ? "active" : "")"
+                            @onclick='() => Pestana = "alertas"'>Alertas</button>
+                </nav>
+            </div>
 
-@switch (Pestana)
-{
-    case "datos":
-        <div class="pila">
-            <CargarDatos />
-            <TarjetaUmbral />
+            <div class="pagina-cuerpo" @key="Pestana">
+                @switch (Pestana)
+                {
+                    case "datos":
+                        <div class="pila">
+                            <CargarDatos />
+                            <Simulacion />
+                        </div>
+                        break;
+
+                    case "estadisticas":
+                        <TablaEstadisticas />
+                        break;
+
+                    case "temporal":
+                        <AnalisisTemporal />
+                        break;
+
+                    case "metodos":
+                        <ComparacionMetodos />
+                        break;
+
+                    case "alertas":
+                        <PanelAlertas />
+                        break;
+                }
+            </div>
         </div>
-        break;
-
-    case "estadisticas":
-        <TablaEstadisticas />
-        break;
-
-    case "temporal":
-        <AnalisisTemporal />
-        break;
-
-    case "metodos":
-        <ComparacionMetodos />
-        break;
-
-    case "alertas":
-        <PanelAlertas />
-        break;
-}
 
 @code {
     private string Pestana { get; set; } = "datos";
 
     protected override async Task OnInitializedAsync()
     {
-        Datos.Cambio += AlCambiar;
         await Datos.InicializarAsync();
-    }
-
-    private void AlCambiar()
-    {
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose()
-    {
-        Datos.Cambio -= AlCambiar;
     }
 }

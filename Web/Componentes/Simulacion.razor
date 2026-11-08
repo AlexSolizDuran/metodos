@@ -1,0 +1,161 @@
+@inherits DatosComponenteBase
+
+@{
+    int normales = Datos.SimulacionHistorial.Count(a => a.Estado == "ACTIVIDAD NORMAL");
+    int sospechosas = Datos.SimulacionHistorial.Count(
+        a => a.Estado == "ACTIVIDAD SOSPECHOSA");
+    int temporales = Datos.SimulacionHistorial.Count(
+        a => a.Estado == "INDICADOR TEMPORAL SOSPECHOSO");
+}
+
+<section class="seccion">
+    <div class="seccion-head">
+        <div>
+            <h2>Monitoreo simulado</h2>
+            <p class="subtitulo">
+                Simula 21 eventos de autenticación con tres comportamientos:
+                normal, sospechoso y acelerado.
+            </p>
+        </div>
+        <span class="chip @(Datos.SimulacionEnCurso ? "chip-alerta" : "")">
+            @(Datos.SimulacionEnCurso ? "En curso" : "Listo")
+        </span>
+    </div>
+
+    <div class="acciones acciones-sim">
+        @if (Datos.SimulacionEnCurso)
+        {
+            <button class="btn btn-ghost" @onclick="Datos.DetenerSimulacion">
+                Detener simulación
+            </button>
+        }
+        else
+        {
+            <button class="btn btn-primary"
+                    @onclick="Iniciar"
+                    disabled="@(Datos.Umbral is null)">
+                Iniciar simulación
+            </button>
+        }
+    </div>
+
+    @if (Datos.Umbral is null)
+    {
+        <p class="aviso aviso-error">
+            La simulación necesita <code>referencia.csv</code> para calcular el umbral.
+        </p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Datos.SimulacionError))
+    {
+        <p class="aviso aviso-error">@Datos.SimulacionError</p>
+    }
+
+    @if (Datos.SimulacionTotal > 0)
+    {
+        <div class="progreso" role="progressbar"
+             aria-valuenow="@Datos.SimulacionProcesados"
+             aria-valuemin="0"
+             aria-valuemax="@Datos.SimulacionTotal">
+            <div class="progreso-barra"
+                 style="width:@(Formato.Numero(Datos.SimulacionProgreso, 1))%"></div>
+        </div>
+
+        <p class="resumen-linea">
+            Evento @Datos.SimulacionProcesados de @Datos.SimulacionTotal
+            (@Formato.Numero(Datos.SimulacionProgreso, 0)%)
+            <span aria-hidden="true">·</span> Normales: @normales
+            <span aria-hidden="true">·</span> Sospechosas: @sospechosas
+            <span aria-hidden="true">·</span> Indicador temporal: @temporales
+        </p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Datos.SimulacionMensaje))
+    {
+        <p class="aviso aviso-ok">@Datos.SimulacionMensaje</p>
+    }
+
+    @if (Datos.SimulacionActual is Alerta actual)
+    {
+        <article class="@Formato.ClaseAlerta(actual.Estado)">
+            <header class="alerta-head">
+                <span class="mono alerta-ip">Último evento · @actual.DireccionIp</span>
+                <span class="@Formato.ClaseEstado(actual.Estado)">@actual.Estado</span>
+            </header>
+
+            <div class="alerta-metricas">
+                <div>
+                    <span>Intentos</span>
+                    <strong>@actual.IntentosAnalizados</strong>
+                </div>
+                <div>
+                    <span>Fallidos</span>
+                    <strong>@actual.IntentosFallidos</strong>
+                </div>
+                <div>
+                    <span>Frecuencia</span>
+                    <strong>@Formato.Numero(actual.FrecuenciaActual, 3) int/s</strong>
+                </div>
+                <div>
+                    <span>Variación</span>
+                    <strong>@actual.Variacion</strong>
+                </div>
+            </div>
+
+            <p class="motivo">@actual.Motivo</p>
+        </article>
+    }
+
+    @if (Datos.SimulacionHistorial.Count > 0)
+    {
+        <details class="detalle-tabla">
+            <summary>Ver eventos procesados (@Datos.SimulacionHistorial.Count)</summary>
+            <div class="tabla-scroll">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th class="num">#</th>
+                            <th>IP</th>
+                            <th class="num">Fallidos</th>
+                            <th class="num">Frecuencia</th>
+                            <th>Variación</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ((Alerta alerta, int indice) in
+                            Datos.SimulacionHistorial
+                                .Select((a, i) => (a, i))
+                                .Reverse()
+                                .Take(10))
+                        {
+                            <tr>
+                                <td class="num mono">@(indice + 1)</td>
+                                <td class="mono">@alerta.DireccionIp</td>
+                                <td class="num">@alerta.IntentosFallidos</td>
+                                <td class="num mono">@Formato.Numero(alerta.FrecuenciaActual, 3)</td>
+                                <td>@alerta.Variacion</td>
+                                <td>
+                                    <span class="@Formato.ClaseEstado(alerta.Estado)">
+                                        @alerta.Estado
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (Datos.SimulacionHistorial.Count > 10)
+            {
+                <p class="nota">Mostrando los últimos 10 eventos.</p>
+            }
+        </details>
+    }
+</section>
+
+@code {
+    private async Task Iniciar()
+    {
+        await Datos.EjecutarSimulacionAsync();
+    }
+}

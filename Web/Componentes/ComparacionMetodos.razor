@@ -1,13 +1,42 @@
-@using DetectorFuerzaBruta.Web.Servicios
-@inject DatosServicio Datos
+@inherits DatosComponenteBase
 
-<section class="card">
-    <div class="card-head">
+<section class="seccion">
+    <div class="seccion-head">
         <div>
             <h2>Comparación de métodos numéricos</h2>
-            <p class="subtitulo">Raíz de Φ(x) − 0.95 = 0 con bisección y Newton-Raphson.</p>
+            <p class="subtitulo">Cálculo de la raíz de Φ(x) − 0.95 = 0 con bisección y Newton-Raphson.</p>
         </div>
         <span class="chip">Tolerancia @Formato.Cientifico(Configuracion.Tolerancia)</span>
+    </div>
+
+    <div class="formulas">
+        <p class="formulas-titulo">Fórmulas del umbral estadístico</p>
+        <div class="formula-grid">
+            <div class="formula-item">
+                <p class="formula-nombre">Ecuación del percentil 95 &nbsp;·&nbsp; Φ(x) − 0,95 = 0</p>
+                <p class="formula-ecuacion">
+                    Φ(x) − 0,95 = 0
+                    <span class="formula-resultado">→&nbsp; x = @Formato.Numero(_biseccion.Valor, 6)</span>
+                </p>
+                <p class="formula-significado">Se resuelve con bisección y Newton-Raphson: valor, iteraciones y error en la tabla.</p>
+            </div>
+            <div class="formula-item">
+                <p class="formula-nombre">Umbral &nbsp;·&nbsp; T = μ + x · σ</p>
+                @if (Datos.Estadistica is EstadisticaReferencia estadistica && Datos.Umbral is double umbralFormula)
+                {
+                    <p class="formula-ecuacion">
+                        T = @Formato.Numero(estadistica.Media, 4) + @Formato.Numero(_biseccion.Valor, 4) × @Formato.Numero(estadistica.Desviacion, 4)
+                        <span class="formula-resultado">= @Formato.Numero(umbralFormula, 4) → @((int)Math.Ceiling(umbralFormula)) fallidos</span>
+                    </p>
+                    <p class="formula-significado">μ media y σ desviación de la referencia · @estadistica.CantidadIp IP normales.</p>
+                }
+                else
+                {
+                    <p class="formula-ecuacion">T = μ + x · σ</p>
+                    <p class="formula-significado">Carga <b>referencia.csv</b> para sustituir μ y σ por los valores reales.</p>
+                }
+            </div>
+        </div>
     </div>
 
     <div class="tabla-scroll">
@@ -48,32 +77,15 @@
         </table>
     </div>
 
-    <div class="kpi-row">
-        <div class="kpi">
-            <span class="kpi-label">Diferencia entre valores</span>
-            <strong class="kpi-valor">@Formato.Cientifico(Math.Abs(_biseccion.Valor - _newton.Valor))</strong>
-        </div>
-        <div class="kpi">
-            <span class="kpi-label">Ahorro de iteraciones</span>
-            <strong class="kpi-valor">@Math.Abs(_biseccion.Iteraciones - _newton.Iteraciones)</strong>
-        </div>
-        <div class="kpi kpi-destacado">
-            <span class="kpi-label">Método más rápido</span>
-            <strong class="kpi-valor">
-                @(_biseccion.Iteraciones <= _newton.Iteraciones ? "Bisección" : "Newton-Raphson")
-            </strong>
-        </div>
-    </div>
-
-    @if (Datos.Estadistica is EstadisticaReferencia estadistica && Datos.Umbral is double umbral)
-    {
-        <div class="formula">
-            T = @Formato.Numero(estadistica.Media, 6)
-            + @Formato.Numero(_biseccion.Valor, 6) × @Formato.Numero(estadistica.Desviacion, 6)
-            = @Formato.Numero(umbral, 6)
-            → @((int)Math.Ceiling(umbral)) intentos fallidos
-        </div>
-    }
+    <p class="resumen-linea">
+        Diferencia entre valores: @Formato.Cientifico(Math.Abs(_biseccion.Valor - _newton.Valor))
+        <span aria-hidden="true">·</span> Ahorro de iteraciones: @Math.Abs(_biseccion.Iteraciones - _newton.Iteraciones)
+        <span aria-hidden="true">·</span> Más rápido: @(_biseccion.Iteraciones <= _newton.Iteraciones ? "Bisección" : "Newton-Raphson")
+        @if (Datos.Umbral is double umbral)
+        {
+            <span aria-hidden="true">·</span> <span>Umbral: @Formato.Numero(umbral, 4) → @((int)Math.Ceiling(umbral)) fallidos</span>
+        }
+    </p>
 
     <div class="grid grid-2">
         <GraficoLineas Titulo="Error de bisección (log₁₀)" Unidad="log"
@@ -155,6 +167,8 @@
 
     protected override void OnInitialized()
     {
+        base.OnInitialized();
+
         Func<double, double> ecuacion = x =>
             NormalEstandar.Acumulada(x) - Configuracion.NivelConfianza;
 

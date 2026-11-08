@@ -7,6 +7,7 @@
     <RootNamespace>DetectorFuerzaBruta.Web</RootNamespace>
     <AssemblyName>DetectorFuerzaBruta.Web</AssemblyName>
     <BlazorEnableCompression>false</BlazorEnableCompression>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>

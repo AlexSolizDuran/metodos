@@ -45,6 +45,47 @@ dotnet run --no-build
 
 El programa es interactivo: muestra un menú y espera el número de la opción.
 
+## Interfaz web (Blazor WebAssembly)
+
+El proyecto incluye una versión web con la misma lógica de análisis, pensada
+para ejecutarse en el navegador y desplegarse en Vercel.
+
+Ejecutar en local:
+
+```bash
+./run-local.sh
+```
+
+También se puede iniciar directamente:
+
+```bash
+dotnet run --project Web/DetectorFuerzaBruta.Web.csproj --urls http://localhost:5080
+```
+
+Abre <http://localhost:5080>.
+
+La interfaz web permite:
+
+- Cargar los datos demo incluidos (`datos.csv` y `referencia.csv`).
+- Subir tus propios archivos CSV.
+- Consultar estadísticas, análisis temporal, métodos numéricos y alertas.
+- **Ejecutar el monitoreo simulado**: genera 21 eventos, los analiza uno por
+  uno y los agrega al conjunto de datos actual.
+
+### Desplegar en Vercel
+
+La app usa **Blazor WebAssembly**, por lo que se publica como sitio estático.
+`vercel-build.sh` instala el SDK de .NET 8 y genera `Web/publish/wwwroot`, que
+es el directorio configurado en `vercel.json`.
+
+```bash
+npx vercel login
+npx vercel --prod
+```
+
+> Blazor Server no es compatible con Vercel porque requiere un servidor .NET
+> con conexión persistente. Por eso la versión web usa WebAssembly.
+
 ## Menú
 
 | Opción | Acción |
@@ -108,7 +149,8 @@ La función `Φ(x)` se aproxima con la función error de Abramowitz y Stegun 7.1
 
 ```text
 DetectorFuerzaBruta.csproj
-Program.cs              Menú, simulación, validación y coordinación
+Program.cs              Menú de consola y coordinación
+Simulador.cs            Configuración, simulación y escenarios de validación
 Registro.cs             Modelo de un intento de autenticación
 LectorCSV.cs            Lectura y validación del CSV
 Analizador.cs           Agrupación por IP, conteos y estadística de referencia
@@ -118,6 +160,10 @@ MetodoNewton.cs         Newton-Raphson
 Detector.cs             Umbral, criterios, alertas y distribución normal
 datos.csv               Datos de entrada
 referencia.csv          Datos normales de referencia
+run-local.sh            Arranca la interfaz web en local
+vercel.json             Configuración de despliegue en Vercel
+vercel-build.sh         Build de Blazor WebAssembly para Vercel
+Web/                    Interfaz Blazor WebAssembly
 ```
 
 ## Resultados esperados

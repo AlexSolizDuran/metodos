@@ -97,13 +97,13 @@ else
 
         sb.Append("<polyline points=\"").Append(puntosTexto)
           .Append("\" fill=\"none\" stroke=\"").Append(Color)
-          .Append("\" stroke-width=\"2.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" />");
+          .Append("\" stroke-width=\"4\" stroke-linejoin=\"round\" stroke-linecap=\"round\" />");
 
         for (int i = 0; i < puntos.Count; i++)
         {
             sb.Append("<circle cx=\"").Append(Formato.Coordenada(puntos[i].X))
               .Append("\" cy=\"").Append(Formato.Coordenada(puntos[i].Y))
-              .Append("\" r=\"3.5\" fill=\"").Append(Color)
+              .Append("\" r=\"5\" fill=\"").Append(Color)
               .Append("\" />");
         }
 

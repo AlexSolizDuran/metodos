@@ -1,5 +1,4 @@
-@using DetectorFuerzaBruta.Web.Servicios
-@inject DatosServicio Datos
+@inherits DatosComponenteBase
 
 @{
     List<Alerta> alertas = Datos.CalcularAlertas();
@@ -7,13 +6,13 @@
     int sospechosas = alertas.Count(a => a.EsSospechosa);
 }
 
-<section class="card">
-    <div class="card-head">
+<section class="seccion">
+    <div class="seccion-head">
         <div>
             <h2>Alertas por IP</h2>
             <p class="subtitulo">
-                Umbral entero: @(Datos.UmbralEntero?.ToString() ?? "sin referencia")
-                intentos fallidos.
+                Clasificación según el umbral de referencia: mínimo
+                @(Datos.UmbralEntero?.ToString() ?? "sin referencia") intentos fallidos.
             </p>
         </div>
         <span class="chip @(sospechosas > 0 ? "chip-alerta" : "")">
@@ -68,11 +67,11 @@
     }
 </section>
 
-<section class="card">
-    <div class="card-head">
+<section class="seccion">
+    <div class="seccion-head">
         <div>
             <h2>Validación con escenarios</h2>
-            <p class="subtitulo">Escenarios normal, sospechoso y acelerado del informe.</p>
+            <p class="subtitulo">Contraste entre el estado esperado y el obtenido en escenarios controlados.</p>
         </div>
     </div>
 
@@ -112,23 +111,11 @@
             </table>
         </div>
 
-        <div class="matriz">
-            <div class="matriz-item matriz-bien">
-                <span>Verdaderos positivos</span>
-                <strong>@validacion.Resumen.VerdaderosPositivos</strong>
-            </div>
-            <div class="matriz-item matriz-mal">
-                <span>Falsos positivos</span>
-                <strong>@validacion.Resumen.FalsosPositivos</strong>
-            </div>
-            <div class="matriz-item matriz-bien">
-                <span>Verdaderos negativos</span>
-                <strong>@validacion.Resumen.VerdaderosNegativos</strong>
-            </div>
-            <div class="matriz-item matriz-mal">
-                <span>Falsos negativos</span>
-                <strong>@validacion.Resumen.FalsosNegativos</strong>
-            </div>
-        </div>
+        <p class="resumen-linea">
+            Verdaderos positivos: @validacion.Resumen.VerdaderosPositivos
+            <span aria-hidden="true">·</span> Falsos positivos: @validacion.Resumen.FalsosPositivos
+            <span aria-hidden="true">·</span> Verdaderos negativos: @validacion.Resumen.VerdaderosNegativos
+            <span aria-hidden="true">·</span> Falsos negativos: @validacion.Resumen.FalsosNegativos
+        </p>
     }
 </section>

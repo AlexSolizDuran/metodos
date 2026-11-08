@@ -1,5 +1,4 @@
-@using DetectorFuerzaBruta.Web.Servicios
-@inject DatosServicio Datos
+@inherits DatosComponenteBase
 
 @{
     Dictionary<string, List<Registro>> grupos = Datos.Grupos;
@@ -18,12 +17,12 @@
     List<string> etiquetasAceleracion = etiquetas.Skip(1).ToList();
 }
 
-<section class="card">
-    <div class="card-head">
+<section class="seccion">
+    <div class="seccion-head">
         <div>
-            <h2>Análisis temporal</h2>
-            <p class="subtitulo">Diferencias finitas sobre la ventana móvil de
-                @Configuracion.TamanoVentana intentos.</p>
+            <h2>Análisis temporal por IP</h2>
+            <p class="subtitulo">Evolución en la ventana móvil de
+                @Configuracion.TamanoVentana intentos: intervalo, frecuencia y aceleración.</p>
         </div>
         @if (ips.Count > 0)
         {
@@ -39,9 +38,31 @@
         }
     </div>
 
-    <div class="formula">
-        h_i = t_i − t_(i−1) &nbsp;·&nbsp; v_i = 1 / h_i &nbsp;·&nbsp;
-        a_i = (v_i − v_(i−1)) / ((h_i + h_(i−1)) / 2)
+    <div class="formulas">
+        <p class="formulas-titulo">Fórmulas de diferencias finitas</p>
+        <div class="formula-grid">
+            <div class="formula-item">
+                <p class="formula-nombre">Intervalo &nbsp;·&nbsp; h<sub>i</sub></p>
+                <p class="formula-ecuacion">
+                    h<sub>i</sub> = t<sub>i</sub> − t<sub>i−1</sub>
+                </p>
+                <p class="formula-significado">Tiempo entre dos intentos consecutivos, en segundos.</p>
+            </div>
+            <div class="formula-item">
+                <p class="formula-nombre">Frecuencia &nbsp;·&nbsp; v<sub>i</sub></p>
+                <p class="formula-ecuacion">
+                    v<sub>i</sub> = <span class="frac"><span class="frac-num">1</span><span class="frac-den">h<sub>i</sub></span></span>
+                </p>
+                <p class="formula-significado">Intentos por segundo. Si crece, hay aceleración.</p>
+            </div>
+            <div class="formula-item">
+                <p class="formula-nombre">Aceleración &nbsp;·&nbsp; a<sub>i</sub></p>
+                <p class="formula-ecuacion">
+                    a<sub>i</sub> = <span class="frac"><span class="frac-num">v<sub>i</sub> − v<sub>i−1</sub></span><span class="frac-den">(h<sub>i</sub> + h<sub>i−1</sub>) / 2</span></span>
+                </p>
+                <p class="formula-significado">Cómo cambia la frecuencia en el tiempo.</p>
+            </div>
+        </div>
     </div>
 
     @if (temporal is null || ipActual is null)
@@ -60,29 +81,13 @@
     }
     else
     {
-        <div class="kpi-row">
-            <div class="kpi">
-                <span class="kpi-label">Intentos en ventana</span>
-                <strong class="kpi-valor">@temporal.IntentosAnalizados</strong>
-            </div>
-            <div class="kpi">
-                <span class="kpi-label">Fallidos en ventana</span>
-                <strong class="kpi-valor">@temporal.IntentosFallidos</strong>
-            </div>
-            <div class="kpi">
-                <span class="kpi-label">Frecuencia actual</span>
-                <strong class="kpi-valor">@Formato.Numero(temporal.FrecuenciaActual, 4)
-                    <small>int/s</small></strong>
-            </div>
-            <div class="kpi">
-                <span class="kpi-label">Variación</span>
-                <strong class="kpi-valor">@temporal.Variacion</strong>
-            </div>
-            <div class="kpi">
-                <span class="kpi-label">Aceleración media</span>
-                <strong class="kpi-valor">@Formato.ConSigno(temporal.PromedioAceleracion, 6)</strong>
-            </div>
-        </div>
+        <p class="resumen-linea">
+            @temporal.IntentosAnalizados intentos en ventana
+            <span aria-hidden="true">·</span> @temporal.IntentosFallidos fallidos
+            <span aria-hidden="true">·</span> Frecuencia actual: @Formato.Numero(temporal.FrecuenciaActual, 4) int/s
+            <span aria-hidden="true">·</span> Variación: @temporal.Variacion
+            <span aria-hidden="true">·</span> Aceleración media: @Formato.ConSigno(temporal.PromedioAceleracion, 6)
+        </p>
 
         <div class="grid grid-2">
             <GraficoLineas Titulo="Frecuencia v_i" Unidad="int/s"
